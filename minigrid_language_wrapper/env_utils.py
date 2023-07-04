@@ -1,3 +1,5 @@
+import gymnasium as gym
+
 from minigrid.core.grid import Grid
 from minigrid.core.world_object import WorldObj
 from minigrid.core.actions import Actions

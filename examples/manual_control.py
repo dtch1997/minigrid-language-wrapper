@@ -35,6 +35,9 @@ class ManualControl:
     def step(self, action: Actions):
         obs, reward, terminated, truncated, _ = self.env.step(action)
         print("Mission: ", obs["mission"])
+        print(obs["image"].shape)
+        if "text" in obs:
+            print("Text observation: ", obs["text"])
         print(f"step={self.env.step_count}, reward={reward:.2f}")
 
         if terminated:
@@ -127,9 +130,9 @@ if __name__ == "__main__":
         agent_view_size=args.agent_view_size,
         screen_size=args.screen_size,
     )
-    from minigrid.wrappers import FullyObsWrapper
+    # from minigrid.wrappers import FullyObsWrapper
 
-    env = FullyObsWrapper(env)
+    # env = FullyObsWrapper(env)
     # from minigrid.wrappers import RGBImgPartialObsWrapper
     # env = RGBImgPartialObsWrapper(env, args.agent_view_size)
 
@@ -138,6 +141,13 @@ if __name__ == "__main__":
         print("Using agent view")
         env = RGBImgPartialObsWrapper(env, args.tile_size)
         env = ImgObsWrapper(env)
+
+    from minigrid_language_wrapper.wrapper import (
+        MinigridTextObservationWrapper,
+        MinigridTextActionWrapper,
+    )
+
+    env = MinigridTextObservationWrapper(env)
 
     manual_control = ManualControl(env, seed=args.seed)
     manual_control.start()

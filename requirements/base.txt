@@ -7,3 +7,23 @@
 --extra-index-url https://pypi.ngc.nvidia.com
 --trusted-host pypi.ngc.nvidia.com
 
+cloudpickle==2.2.1
+    # via gymnasium
+farama-notifications==0.0.4
+    # via gymnasium
+gymnasium==0.28.1
+    # via
+    #   -r requirements/base.in
+    #   minigrid
+jax-jumpy==1.0.0
+    # via gymnasium
+minigrid==2.3.0
+    # via -r requirements/base.in
+numpy==1.25.0
+    # via
+    #   gymnasium
+    #   minigrid
+pygame==2.5.0
+    # via minigrid
+typing-extensions==4.7.1
+    # via gymnasium

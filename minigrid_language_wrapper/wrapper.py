@@ -16,7 +16,7 @@ class MinigridTextObservationWrapper(ObservationWrapper):
     def __init__(self, env):
         super().__init__(env)
         self.observation_space = deepcopy(self.env.observation_space)
-        self.observation_space.spaces["text"] = spaces.Text()
+        self.observation_space.spaces["text"] = spaces.Text(max_length=4096)
 
     def observation(self, observation) -> dict:
         # Decode objects in the 'image' observation
@@ -37,7 +37,7 @@ class MinigridTextObservationWrapper(ObservationWrapper):
                 else:
                     state = ""
 
-                if object_type == "unseen":
+                if object_type == "unseen" or object_type == "empty":
                     continue
                 else:
                     text_obs += f"{state}{color} {object_type} at {(i, j)}\n"
@@ -53,7 +53,7 @@ class MinigridTextActionWrapper(ActionWrapper):
 
     def __init__(self, env):
         super().__init__(env)
-        self.action_space = spaces.Text()
+        self.action_space = spaces.Text(max_length=8)
 
     def action(self, action) -> Actions:
         action_str = action.strip().lower()
