@@ -2,6 +2,31 @@
 
 Wrap Minigrid environments with text-based observations and actions
 
+## Example
+
+![rgb image of env](assets/env_rgb.png)
+
+Text observation:
+```
+# Agent located at (3, 6) within field of view
+grey wall at (1, 3)
+grey wall at (1, 4)
+grey wall at (1, 5)
+grey wall at (1, 6)
+grey wall at (2, 3)
+grey wall at (3, 3)
+grey wall at (4, 3)
+grey wall at (5, 3)
+red key at (5, 4)
+grey ball at (5, 6)
+grey wall at (6, 3)
+grey wall at (6, 4)
+grey wall at (6, 5)
+locked red door at (6, 6)
+```
+
+## Roadmap
+
 ## Quickstart
 
 Install requirements:
@@ -13,6 +38,6 @@ python -m pip install -e .
 ```
 
 Open a CLI which demonstrates the TextObservation wrapper
-```
+```bash
 python examples/manual_control.py
 ```
