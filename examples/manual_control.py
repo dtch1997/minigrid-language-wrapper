@@ -6,7 +6,7 @@ from gymnasium import Env
 
 from minigrid.core.actions import Actions
 from minigrid.minigrid_env import MiniGridEnv
-from minigrid_language_wrapper.wrapper import (
+from minigrid_language_wrapper.text_wrapper import (
     MinigridTextObservationWrapper,
     MinigridTextActionWrapper,
 )
