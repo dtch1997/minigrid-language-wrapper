@@ -15,6 +15,10 @@ from minigrid.core.constants import (
 
 IDX_TO_STATE = {v: k for k, v in STATE_TO_IDX.items()}
 
+from minigrid_language_wrapper.text_wrapper import (
+    MinigridTextObservationWrapper,
+)
+
 
 class RoomgridObservationWrapper(ObservationWrapper):
 
@@ -59,3 +63,100 @@ class RoomgridObservationWrapper(ObservationWrapper):
         )
 
         return {**observation, "image": room_grid_enc}
+
+
+def get_relative_direction(source_pos, target_pos):
+    """Get the relative direction of the target position from the source position"""
+    directions = ["east", "south", "west", "north"]
+    dx = target_pos[0] - source_pos[0]
+    dy = target_pos[1] - source_pos[1]
+    if dx == 0 and dy == 0:
+        return "here"
+    elif dx == 0:
+        if dy > 0:
+            return "south"
+        else:
+            return "north"
+    elif dy == 0:
+        if dx > 0:
+            return "east"
+        else:
+            return "west"
+    # Handle diagonals
+    if dx > 0:
+        if dy > 0:
+            return "southeast"
+        else:
+            return "northeast"
+    else:
+        if dy > 0:
+            return "southwest"
+        else:
+            return "northwest"
+
+
+class RoomgridTextObservationWrapper(ObservationWrapper):
+    @property
+    def spec(self):
+        return self.env.spec
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.observation_space = deepcopy(self.env.observation_space)
+        self.observation_space.spaces["text"] = spaces.Text(max_length=4096)
+
+    def observation(self, observation) -> dict:
+        """Describes objects at a higher level than the Minigrid wrapper"""
+
+        text_obs = ""
+
+        agent_x, agent_y = self.unwrapped.agent_pos
+        directions = ["east", "south", "west", "north"]
+        agent_dir = directions[observation["direction"]]
+        room = self.unwrapped.room_from_pos(*self.unwrapped.agent_pos)
+        agent_pos_room = (agent_x - room.top[0], agent_y - room.top[1])
+        text_obs += f"You are in a room, facing {agent_dir}.\n"
+
+        for i, door in enumerate(room.doors):
+            if door:
+                door_state = "closed"
+                if door.is_open:
+                    door_state = "open"
+                elif door.is_locked:
+                    door_state = "locked"
+                text_obs += f"There is a {door_state} door to the {directions[i]}.\n"
+
+        # Describe objects in view
+        image = observation["image"]
+        h, w, _ = image.shape
+        for i in range(h):
+            for j in range(w):
+                # Calculate relative direction of object from agent
+                object_pos = (i, j)
+                object_dir = get_relative_direction(agent_pos_room, object_pos)
+
+                cell = image[i, j]
+                object_idx, color_idx, state_idx = cell
+                object_type = IDX_TO_OBJECT[object_idx]
+                color = IDX_TO_COLOR[color_idx]
+
+                if object_type == "door":
+                    state = IDX_TO_STATE[state_idx] + " "
+                else:
+                    state = ""
+
+                if object_type in ("unseen", "empty", "wall", "agent"):
+                    continue
+                if object_type == "door":
+                    # Handled above
+                    continue
+                else:
+                    text_obs += f"There is a {state}{color} {object_type} to your {object_dir}\n"
+
+        # Describe objects in inventory
+        if self.unwrapped.carrying:
+            object = self.unwrapped.carrying
+            text_obs += f"You are carrying a {object.color} {object.type}.\n"
+
+        observation["text"] = text_obs
+        return observation

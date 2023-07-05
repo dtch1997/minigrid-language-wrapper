@@ -10,7 +10,10 @@ from minigrid_language_wrapper.text_wrapper import (
     MinigridTextObservationWrapper,
     MinigridTextActionWrapper,
 )
-from minigrid_language_wrapper.roomgrid_wrapper import RoomgridObservationWrapper
+from minigrid_language_wrapper.roomgrid_wrapper import (
+    RoomgridObservationWrapper,
+    RoomgridTextObservationWrapper,
+)
 
 
 class ManualControl:
@@ -108,6 +111,11 @@ if __name__ == "__main__":
         help="use the text observation wrapper",
     )
     parser.add_argument(
+        "--use-roomtext-obs",
+        action="store_true",
+        help="use the roomtext observation wrapper",
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         help="random seed to generate the environment with",
@@ -149,6 +157,8 @@ if __name__ == "__main__":
         env = RoomgridObservationWrapper(env)
     if args.use_text_obs:
         env = MinigridTextObservationWrapper(env)
+    if args.use_roomtext_obs:
+        env = RoomgridTextObservationWrapper(env)
 
     manual_control = ManualControl(env, seed=args.seed)
     manual_control.start()
