@@ -112,11 +112,17 @@ class RoomgridTextObservationWrapper(ObservationWrapper):
 
         agent_x, agent_y = self.unwrapped.agent_pos
         directions = ["east", "south", "west", "north"]
-        agent_dir = directions[observation["direction"]]
         room = self.unwrapped.room_from_pos(*self.unwrapped.agent_pos)
         agent_pos_room = (agent_x - room.top[0], agent_y - room.top[1])
+
+        # Describe mission
+        text_obs += f"The mission is: {observation['mission']}\n"
+
+        # Describe agent
+        agent_dir = directions[observation["direction"]]
         text_obs += f"You are in a room, facing {agent_dir}.\n"
 
+        # Describe doors to other rooms
         for i, door in enumerate(room.doors):
             if door:
                 door_state = "closed"
@@ -124,7 +130,24 @@ class RoomgridTextObservationWrapper(ObservationWrapper):
                     door_state = "open"
                 elif door.is_locked:
                     door_state = "locked"
-                text_obs += f"There is a {door_state} door to the {directions[i]}.\n"
+                text_obs += f"There is a {door_state} {door.color} door to the {directions[i]}.\n"
+
+        # Describe objects adjacent to agent
+        east_obj = self.unwrapped.grid.get(agent_x + 1, agent_y)
+        if east_obj is not None and not east_obj.type in ("unseen", "empty"):
+            text_obs += f"There is a {east_obj.color} {east_obj.type} immediately east of you.\n"
+
+        south_obj = self.unwrapped.grid.get(agent_x, agent_y + 1)
+        if south_obj is not None and not south_obj.type in ("unseen", "empty"):
+            text_obs += f"There is a {south_obj.color} {south_obj.type} immediately south of you.\n"
+
+        west_obj = self.unwrapped.grid.get(agent_x - 1, agent_y)
+        if west_obj is not None and not west_obj.type in ("unseen", "empty"):
+            text_obs += f"There is a {west_obj.color} {west_obj.type} immediately west of you.\n"
+
+        north_obj = self.unwrapped.grid.get(agent_x, agent_y - 1)
+        if north_obj is not None and not north_obj.type in ("unseen", "empty"):
+            text_obs += f"There is a {north_obj.color} {north_obj.type} immediately north of you.\n"
 
         # Describe objects in view
         image = observation["image"]
@@ -140,18 +163,16 @@ class RoomgridTextObservationWrapper(ObservationWrapper):
                 object_type = IDX_TO_OBJECT[object_idx]
                 color = IDX_TO_COLOR[color_idx]
 
-                if object_type == "door":
-                    state = IDX_TO_STATE[state_idx] + " "
-                else:
-                    state = ""
-
-                if object_type in ("unseen", "empty", "wall", "agent"):
+                if object_type in ("unseen", "empty"):
                     continue
-                if object_type == "door":
+                elif object_type in ("wall", "agent"):
+                    # Walls, agent are (implicitly) part of the room
+                    continue
+                elif object_type == "door":
                     # Handled above
                     continue
-                else:
-                    text_obs += f"There is a {state}{color} {object_type} to your {object_dir}\n"
+
+                text_obs += f"There is a {color} {object_type} to your {object_dir}\n"
 
         # Describe objects in inventory
         if self.unwrapped.carrying:
