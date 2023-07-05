@@ -37,7 +37,11 @@ python -m pip install -r requirements/dev.txt
 python -m pip install -e .
 ```
 
-Open a CLI which demonstrates the TextObservation wrapper
+Open a CLI which does manual control
 ```bash
-python examples/manual_control.py
+# Note: room_obs only works for RoomGrid environments
+python examples/manual_control.py \
+    --env-id MiniGrid-UnlockPickup-v0 \
+    --use-room-obs \
+    --use-text-obs \
 ```
