@@ -6,7 +6,11 @@ from gymnasium import Env
 
 from minigrid.core.actions import Actions
 from minigrid.minigrid_env import MiniGridEnv
-from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
+from minigrid_language_wrapper.wrapper import (
+    MinigridTextObservationWrapper,
+    MinigridTextActionWrapper,
+)
+from minigrid_language_wrapper.roomgrid_wrapper import RoomgridObservationWrapper
 
 
 class ManualControl:
@@ -94,6 +98,16 @@ if __name__ == "__main__":
         default="MiniGrid-MultiRoom-N6-v0",
     )
     parser.add_argument(
+        "--use-room-obs",
+        action="store_true",
+        help="use the room observation wrapper",
+    )
+    parser.add_argument(
+        "--use-text-obs",
+        action="store_true",
+        help="use the text observation wrapper",
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         help="random seed to generate the environment with",
@@ -130,24 +144,11 @@ if __name__ == "__main__":
         agent_view_size=args.agent_view_size,
         screen_size=args.screen_size,
     )
-    # from minigrid.wrappers import FullyObsWrapper
 
-    # env = FullyObsWrapper(env)
-    # from minigrid.wrappers import RGBImgPartialObsWrapper
-    # env = RGBImgPartialObsWrapper(env, args.agent_view_size)
-
-    # TODO: check if this can be removed
-    if args.agent_view:
-        print("Using agent view")
-        env = RGBImgPartialObsWrapper(env, args.tile_size)
-        env = ImgObsWrapper(env)
-
-    from minigrid_language_wrapper.wrapper import (
-        MinigridTextObservationWrapper,
-        MinigridTextActionWrapper,
-    )
-
-    env = MinigridTextObservationWrapper(env)
+    if args.use_room_obs:
+        env = RoomgridObservationWrapper(env)
+    if args.use_text_obs:
+        env = MinigridTextObservationWrapper(env)
 
     manual_control = ManualControl(env, seed=args.seed)
     manual_control.start()
