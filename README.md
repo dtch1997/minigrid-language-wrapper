@@ -42,6 +42,5 @@ Open a CLI which does manual control
 # Note: room_obs only works for RoomGrid environments
 python examples/manual_control.py \
     --env-id MiniGrid-UnlockPickup-v0 \
-    --use-room-obs \
-    --use-text-obs \
+    --use-roomtext-obs
 ```
