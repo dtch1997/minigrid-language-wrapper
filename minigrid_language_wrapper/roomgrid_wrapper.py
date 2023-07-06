@@ -1,13 +1,12 @@
 import numpy as np
+from typing import Tuple
 from copy import deepcopy
 from gymnasium import spaces
-from gymnasium.core import ObservationWrapper, ActionWrapper
+from gymnasium.core import ObservationWrapper
 
 import minigrid
-from minigrid.core.actions import Actions
+from minigrid.core.roomgrid import Room, RoomGrid
 from minigrid.core.constants import (
-    IDX_TO_OBJECT,
-    IDX_TO_COLOR,
     STATE_TO_IDX,
     OBJECT_TO_IDX,
     COLOR_TO_IDX,
@@ -15,12 +14,8 @@ from minigrid.core.constants import (
 
 IDX_TO_STATE = {v: k for k, v in STATE_TO_IDX.items()}
 
-from minigrid_language_wrapper.text_wrapper import (
-    MinigridTextObservationWrapper,
-)
 
-
-class RoomgridObservationWrapper(ObservationWrapper):
+class RoomGridObservationWrapper(ObservationWrapper):
 
     """Replace the 'image' observation with an observation of the current room"""
 
@@ -95,89 +90,129 @@ def get_relative_direction(source_pos, target_pos):
             return "northwest"
 
 
-class RoomgridTextObservationWrapper(ObservationWrapper):
+def describe_room(room: Room) -> str:
+    text_obs = ""
+
+    # Describe doors to other rooms
+    directions = ("east", "south", "west", "north")
+    text_obs += "The room has doors: "
+    for i, door in enumerate(room.doors):
+        if door:
+            door_state = "closed"
+            if door.is_open:
+                door_state = "open"
+            elif door.is_locked:
+                door_state = "locked"
+            text_obs += f"{door_state} {door.color} door leading {directions[i]}, "
+    text_obs += "\n"
+
+    # Describe objects in room
+    text_obs += "The room has objects: "
+    for obj in room.objs:
+        if obj.type in ("unseen", "empty"):
+            continue
+        elif obj.type in ("wall", "agent"):
+            # Walls, agent are (implicitly) part of the room
+            continue
+        elif obj.type == "door":
+            # Handled above
+            continue
+        text_obs += f"{obj.color} {obj.type},"
+    text_obs += "\n"
+    return text_obs
+
+
+def describe_agent(env):
+    text_obs = ""
+
+    # Describe agent
+    directions = ("east", "south", "west", "north")
+    text_obs += f"The agent is facing {directions[env.agent_dir]}.\n"
+
+    # Describe objects adjacent to agent
+    directions = ("east", "south", "west", "north")
+    delta_pos = ((1, 0), (0, 1), (-1, 0), (0, -1))
+    text_obs += "The agent is next to objects: "
+    for dir, dpos in zip(directions, delta_pos):
+        obj_pos = (env.agent_pos[0] + dpos[0], env.agent_pos[1] + dpos[1])
+        obj = env.grid.get(*obj_pos)
+        if obj is not None and not obj.type in ("unseen", "empty"):
+            text_obs += f"{obj.color} {obj.type} to the {dir}, "
+    text_obs += "\n"
+
+    # TODO: describe agent field of view
+
+    # Describe inventory
+    if env.carrying:
+        text_obs += (
+            f"The agent is carrying: {env.carrying.color} {env.carrying.type}.\n"
+        )
+
+    return text_obs
+
+
+def describe_roomgrid(env: RoomGrid) -> str:
+    """Describe all rooms in a RoomGrid env"""
+    text_obs = ""
+    for row in range(env.num_rows):
+        for col in range(env.num_cols):
+            room = env.get_room(col, row)
+            text_obs += "Room ({}, {}):\n".format(col, row)
+            text_obs += describe_room(room)
+    return text_obs
+
+
+def room_idx_from_pos(env: RoomGrid, x: int, y: int) -> Tuple[int, int]:
+    """Get the room a given position maps to"""
+
+    assert x >= 0
+    assert y >= 0
+
+    i = x // (env.room_size - 1)
+    j = y // (env.room_size - 1)
+
+    assert i < env.num_cols
+    assert j < env.num_rows
+
+    return (i, j)
+
+
+class RoomGridTextPartialObsWrapper(ObservationWrapper):
     @property
     def spec(self):
         return self.env.spec
 
-    def __init__(self, env):
+    def __init__(self, env, fully_obs=False):
+        assert isinstance(
+            env.unwrapped, minigrid.roomgrid.RoomGrid
+        ), "This wrapper only works with RoomGrid environments"
         super().__init__(env)
+
+        self.fully_obs = fully_obs
         self.observation_space = deepcopy(self.env.observation_space)
         self.observation_space.spaces["text"] = spaces.Text(max_length=4096)
 
     def observation(self, observation) -> dict:
         """Describes objects at a higher level than the Minigrid wrapper"""
 
+        env = self.unwrapped
         text_obs = ""
 
-        agent_x, agent_y = self.unwrapped.agent_pos
-        directions = ["east", "south", "west", "north"]
-        room = self.unwrapped.room_from_pos(*self.unwrapped.agent_pos)
-        agent_pos_room = (agent_x - room.top[0], agent_y - room.top[1])
+        if self.fully_obs:
+            room_idx = room_idx_from_pos(env, *env.agent_pos)
+            text_obs += f"The agent is in room ({room_idx[0]}, {room_idx[1]}).\n"
+            text_obs += describe_roomgrid(env)
+        else:
+            room = env.room_from_pos(*env.agent_pos)
+            text_obs += "The agent is in a room."
+            text_obs += describe_room(room)
 
-        # Describe mission
-        text_obs += f"The mission is: {observation['mission']}\n"
-
-        # Describe agent
-        agent_dir = directions[observation["direction"]]
-        text_obs += f"You are in a room, facing {agent_dir}.\n"
-
-        # Describe doors to other rooms
-        for i, door in enumerate(room.doors):
-            if door:
-                door_state = "closed"
-                if door.is_open:
-                    door_state = "open"
-                elif door.is_locked:
-                    door_state = "locked"
-                text_obs += f"There is a {door_state} {door.color} door to the {directions[i]}.\n"
-
-        # Describe objects adjacent to agent
-        east_obj = self.unwrapped.grid.get(agent_x + 1, agent_y)
-        if east_obj is not None and not east_obj.type in ("unseen", "empty"):
-            text_obs += f"There is a {east_obj.color} {east_obj.type} immediately east of you.\n"
-
-        south_obj = self.unwrapped.grid.get(agent_x, agent_y + 1)
-        if south_obj is not None and not south_obj.type in ("unseen", "empty"):
-            text_obs += f"There is a {south_obj.color} {south_obj.type} immediately south of you.\n"
-
-        west_obj = self.unwrapped.grid.get(agent_x - 1, agent_y)
-        if west_obj is not None and not west_obj.type in ("unseen", "empty"):
-            text_obs += f"There is a {west_obj.color} {west_obj.type} immediately west of you.\n"
-
-        north_obj = self.unwrapped.grid.get(agent_x, agent_y - 1)
-        if north_obj is not None and not north_obj.type in ("unseen", "empty"):
-            text_obs += f"There is a {north_obj.color} {north_obj.type} immediately north of you.\n"
-
-        # Describe objects in view
-        image = observation["image"]
-        h, w, _ = image.shape
-        for i in range(h):
-            for j in range(w):
-                # Calculate relative direction of object from agent
-                object_pos = (i, j)
-                object_dir = get_relative_direction(agent_pos_room, object_pos)
-
-                cell = image[i, j]
-                object_idx, color_idx, state_idx = cell
-                object_type = IDX_TO_OBJECT[object_idx]
-                color = IDX_TO_COLOR[color_idx]
-
-                if object_type in ("unseen", "empty"):
-                    continue
-                elif object_type in ("wall", "agent"):
-                    # Walls, agent are (implicitly) part of the room
-                    continue
-                elif object_type == "door":
-                    # Handled above
-                    continue
-
-                text_obs += f"There is a {color} {object_type} to your {object_dir}\n"
-
-        # Describe objects in inventory
-        if self.unwrapped.carrying:
-            object = self.unwrapped.carrying
-            text_obs += f"You are carrying a {object.color} {object.type}.\n"
+        text_obs += describe_agent(env)
 
         observation["text"] = text_obs
         return observation
+
+
+class RoomGridTextFullyObsWrapper(RoomGridTextPartialObsWrapper):
+    def __init__(self, env):
+        super().__init__(env, fully_obs=True)

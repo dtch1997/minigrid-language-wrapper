@@ -11,8 +11,9 @@ from minigrid_language_wrapper.text_wrapper import (
     MinigridTextActionWrapper,
 )
 from minigrid_language_wrapper.roomgrid_wrapper import (
-    RoomgridObservationWrapper,
-    RoomgridTextObservationWrapper,
+    RoomGridObservationWrapper,
+    RoomGridTextFullyObsWrapper,
+    RoomGridTextPartialObsWrapper,
 )
 
 
@@ -42,7 +43,6 @@ class ManualControl:
     def step(self, action: Actions):
         obs, reward, terminated, truncated, _ = self.env.step(action)
         print("Mission: ", obs["mission"])
-        print(obs["image"].shape)
         if "text" in obs:
             print("Text observation: ", obs["text"])
         print(f"step={self.env.step_count}, reward={reward:.2f}")
@@ -153,12 +153,8 @@ if __name__ == "__main__":
         screen_size=args.screen_size,
     )
 
-    if args.use_room_obs:
-        env = RoomgridObservationWrapper(env)
-    if args.use_text_obs:
-        env = MinigridTextObservationWrapper(env)
     if args.use_roomtext_obs:
-        env = RoomgridTextObservationWrapper(env)
+        env = RoomGridTextPartialObsWrapper(env)
 
     manual_control = ManualControl(env, seed=args.seed)
     manual_control.start()
